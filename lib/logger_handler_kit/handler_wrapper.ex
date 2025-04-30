@@ -47,9 +47,17 @@ defmodule LoggerHandlerKit.HandlerWrapper do
   ```
   """
 
-  @behaviour :logger_handler
+  # Prior to OTP 27 :logger_handler behaviour didn't exist and callbacks were part of :logger.
+  # https://github.com/erlang/otp/commit/2afd6748f16ad226d0ae12b54e57e0147dafdbdd
+  if System.otp_release() < "27" do
+    @behaviour_module false
+  else
+    @behaviour_module :logger_handler
+    @behaviour @behaviour_module
+  end
 
-  @impl :logger_handler
+  if @behaviour_module, do: @impl(@behaviour_module)
+
   def adding_handler(config) do
     unwrapped = unwrap_config(config)
     Code.ensure_loaded!(unwrapped.module)
@@ -62,7 +70,8 @@ defmodule LoggerHandlerKit.HandlerWrapper do
     end
   end
 
-  @impl :logger_handler
+  if @behaviour_module, do: @impl(@behaviour_module)
+
   def log(log_event, %{config: %{test_pid: test_pid, ref: ref}} = config) do
     config
     |> unwrap_config()
@@ -74,7 +83,8 @@ defmodule LoggerHandlerKit.HandlerWrapper do
     _ -> send(test_pid, {ref, :log_call_completed})
   end
 
-  @impl :logger_handler
+  if @behaviour_module, do: @impl(@behaviour_module)
+
   def removing_handler(config) do
     unwrapped = unwrap_config(config)
 
@@ -83,7 +93,8 @@ defmodule LoggerHandlerKit.HandlerWrapper do
     end
   end
 
-  @impl :logger_handler
+  if @behaviour_module, do: @impl(@behaviour_module)
+
   def changing_config(set_or_update, old_config, new_config) do
     old_unwrapped = unwrap_config(old_config)
     new_unwrapped = unwrap_config(new_config)
