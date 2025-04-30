@@ -151,6 +151,7 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
       assert msg =~ "[error] GenServer \"genserver global name\""
     end
 
+    @tag skip: System.otp_release() < "27"
     test "genserver crash with process label", %{handler_ref: ref, io_ref: io_ref} do
       LoggerHandlerKit.Act.genserver_crash(:process_label)
       LoggerHandlerKit.Assert.assert_logged(ref)
@@ -226,6 +227,9 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
                "(UndefinedFunctionError) function :module_does_not_exist.undef/0 is undefined"
     end
 
+    # Before Elixir 1.17 gen_statem crashes were swallowed by Logger.Translator
+    # https://github.com/elixir-lang/elixir/pull/13451
+    @tag skip: System.version() < "1.17"
     test "gen_statem crash exception", %{handler_ref: ref, io_ref: io_ref} do
       LoggerHandlerKit.Act.gen_statem_crash(:exception)
       LoggerHandlerKit.Assert.assert_logged(ref)
@@ -235,6 +239,7 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
       assert msg =~ "** (RuntimeError) oops"
     end
 
+    @tag skip: System.version() < "1.17"
     test "gen_statem crash exit", %{handler_ref: ref, io_ref: io_ref} do
       LoggerHandlerKit.Act.gen_statem_crash(:exit)
       LoggerHandlerKit.Assert.assert_logged(ref)
@@ -244,6 +249,7 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
       assert msg =~ "** (stop) \"i quit\""
     end
 
+    @tag skip: System.version() < "1.17"
     test "gen_statem crash throw", %{handler_ref: ref, io_ref: io_ref} do
       LoggerHandlerKit.Act.gen_statem_crash(:throw)
       LoggerHandlerKit.Assert.assert_logged(ref)
@@ -327,7 +333,13 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
       LoggerHandlerKit.Assert.assert_logged(ref)
 
       assert_receive {^io_ref, msg}
-      assert msg =~ "[debug] Child :task of Supervisor #PID<"
+
+      if System.otp_release() < "27" do
+        assert msg =~ "[info] Child :task of Supervisor #PID<"
+      else
+        assert msg =~ "[debug] Child :task of Supervisor #PID<"
+      end
+
       assert msg =~ " (Supervisor.Default) started"
     end
 

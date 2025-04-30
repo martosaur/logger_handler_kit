@@ -47,7 +47,7 @@ defmodule LoggerHandlerKit.Act do
   default, but a thorough handler might have an interest in them.
   """
 
-  require ExUnit.Assertions
+  import ExUnit.Assertions
 
   @doc """
   The most basic and perhaps most common log message is a simple [string](`String`) passed to one of the `Logger` functions:
@@ -569,19 +569,28 @@ defmodule LoggerHandlerKit.Act do
     :exit, {{%RuntimeError{message: "oops"}, _}, _} -> :ok
   end
 
-  def genserver_crash(:process_label) do
-    {:ok, pid} = LoggerHandlerKit.GenServer.start(nil)
+  if System.otp_release() < "27" do
+    def genserver_crash(:process_label),
+      do:
+        raise("""
+        Process labels were introduced in OTP 27.
+        If you want to run test suite for older Elixir version, considder skipping the test with `@tag skip: System.otp_release() < "27"`
+        """)
+  else
+    def genserver_crash(:process_label) do
+      {:ok, pid} = LoggerHandlerKit.GenServer.start(nil)
 
-    GenServer.call(
-      pid,
-      {:run,
-       fn ->
-         Process.set_label({:any, "term"})
-         raise "oops"
-       end}
-    )
-  catch
-    :exit, {{%RuntimeError{message: "oops"}, _}, _} -> :ok
+      GenServer.call(
+        pid,
+        {:run,
+         fn ->
+           Process.set_label({:any, "term"})
+           raise "oops"
+         end}
+      )
+    catch
+      :exit, {{%RuntimeError{message: "oops"}, _}, _} -> :ok
+    end
   end
 
   def genserver_crash(:named_client) do
@@ -608,7 +617,7 @@ defmodule LoggerHandlerKit.Act do
           {:run,
            fn {caller, _}, _ ->
              caller_monitor = Process.monitor(caller)
-             ExUnit.Assertions.assert_receive({:DOWN, ^caller_monitor, _, _, _})
+             assert_receive({:DOWN, ^caller_monitor, _, _, _})
              raise "oops"
            end},
           0
@@ -618,7 +627,7 @@ defmodule LoggerHandlerKit.Act do
       end
     end)
 
-    ExUnit.Assertions.assert_receive({:DOWN, ^mon, _, _, _})
+    assert_receive({:DOWN, ^mon, _, _, _})
     :ok
   end
 
@@ -626,7 +635,7 @@ defmodule LoggerHandlerKit.Act do
     {:ok, pid} = LoggerHandlerKit.GenServer.start(nil)
     mon = Process.monitor(pid)
     GenServer.cast(pid, fn -> raise "oops" end)
-    ExUnit.Assertions.assert_receive({:DOWN, ^mon, _, _, _})
+    assert_receive({:DOWN, ^mon, _, _, _})
     :ok
   end
 
@@ -754,28 +763,28 @@ defmodule LoggerHandlerKit.Act do
   def task_error(:exception) do
     {:ok, pid} = Task.start(fn -> raise "oops" end)
     ref = Process.monitor(pid)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
   def task_error(:exit) do
     {:ok, pid} = Task.start(fn -> exit("i quit") end)
     ref = Process.monitor(pid)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
   def task_error(:throw) do
     {:ok, pid} = Task.start(fn -> throw("catch!") end)
     ref = Process.monitor(pid)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
   def task_error(:undefined) do
     {:ok, pid} = Task.start(:module_does_not_exist, :undef, [])
     ref = Process.monitor(pid)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1046,7 +1055,7 @@ defmodule LoggerHandlerKit.Act do
 
     LoggerHandlerKit.Arrange.allow(self(), pid, handler_id)
     send(pid, :go)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1062,7 +1071,7 @@ defmodule LoggerHandlerKit.Act do
 
     LoggerHandlerKit.Arrange.allow(self(), pid, handler_id)
     send(pid, :go)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1428,7 +1437,7 @@ defmodule LoggerHandlerKit.Act do
 
     ref = Process.monitor(pid)
 
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1443,7 +1452,7 @@ defmodule LoggerHandlerKit.Act do
 
     ref = Process.monitor(pid)
 
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1458,7 +1467,7 @@ defmodule LoggerHandlerKit.Act do
 
     ref = Process.monitor(pid)
 
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1591,7 +1600,7 @@ defmodule LoggerHandlerKit.Act do
     })
 
     Process.exit(pid, :normal)
-    ExUnit.Assertions.assert_receive({:DOWN, ^ref, _, _, _})
+    assert_receive({:DOWN, ^ref, _, _, _})
     :ok
   end
 
@@ -1650,7 +1659,7 @@ defmodule LoggerHandlerKit.Act do
        exit(:stop)
      end})
 
-    ExUnit.Assertions.assert_receive({:EXIT, ^pid, _})
+    assert_receive({:EXIT, ^pid, _})
     :ok
   end
 end
