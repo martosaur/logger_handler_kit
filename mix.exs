@@ -44,7 +44,8 @@ defmodule LoggerHandlerKit.MixProject do
       source_url: @source_url,
       source_ref: "v#{@version}",
       extras: [
-        "README.md"
+        "README.md",
+        "guides/translation.md"
       ],
       groups_for_modules: [
         Helpers: [
@@ -53,6 +54,9 @@ defmodule LoggerHandlerKit.MixProject do
           LoggerHandlerKit.GenStatem,
           LoggerHandlerKit.Helper
         ]
+      ],
+      groups_for_extras: [
+        Guides: Path.wildcard("guides/*.md")
       ],
       before_closing_head_tag: &before_closing_head_tag/1
     ]
