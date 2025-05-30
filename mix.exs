@@ -45,7 +45,8 @@ defmodule LoggerHandlerKit.MixProject do
       source_ref: "v#{@version}",
       extras: [
         "README.md",
-        "guides/translation.md"
+        "guides/translation.md",
+        "guides/unhandled.md"
       ],
       groups_for_modules: [
         Helpers: [
