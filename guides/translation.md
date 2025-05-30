@@ -373,9 +373,18 @@ making the original report accessible to the handlers. Here is an example:
 
 ## More Than Translation
 
+### Enforcing `handle_*_reports` configuration options
+
 In addition to translating logs, the `logger_translator` filter is also responsible
 for enforcing the `handle_otp_reports` and `handle_sasl_reports` [configuration
 options](https://hexdocs.pm/logger/Logger.html#module-boot-configuration). This
 is worth keeping in mind and may come up during debugging. Trying to understand
 which part of the system dropped an OTP log event may lead to the surprising
 discovery that the logger translator did it.
+
+### Populating `crash_reason`
+
+Another important job of `Logger.Translator` is [populating the `crash_reason`
+metadata](unhandled.md). This metadata key contains a `{reason, stacktrace}` tuple and serves
+as an Elixir convention for marking log events that result from unhandled
+exceptions, throws, or abnormal exits.
