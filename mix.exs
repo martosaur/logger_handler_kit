@@ -46,7 +46,8 @@ defmodule LoggerHandlerKit.MixProject do
       extras: [
         "README.md",
         "guides/translation.md",
-        "guides/unhandled.md"
+        "guides/unhandled.md",
+        "guides/metadata.md"
       ],
       groups_for_modules: [
         Helpers: [
