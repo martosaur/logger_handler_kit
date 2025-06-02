@@ -98,7 +98,7 @@ flowchart TD
 def deps do
   [
     # The package only makes sense for tests!
-    {:logger_handler_kit, only: :test, "~> 0.1.0"}
+    {:logger_handler_kit, only: :test, "~> 0.2.0"}
   ]
 end
 ```
@@ -137,7 +137,7 @@ end
 
 ## TODO
 
-* [ ] cover metadata
+* [x] cover metadata
 * [ ] cover overload protection
-* [ ] cover encoding/serialization
+* [x] cover encoding/serialization
 * [ ] cover logging packages overview
