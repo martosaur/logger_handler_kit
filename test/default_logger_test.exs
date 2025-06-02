@@ -19,7 +19,7 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
         %{
           type: {:device, io_device}
         },
-        Map.merge(%{formatter: Logger.default_formatter()}, big_config_override)
+        Map.merge(%{formatter: Logger.default_formatter(metadata: [:extra])}, big_config_override)
       )
 
     on_exit(on_exit)
@@ -365,6 +365,198 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
       assert msg =~ " (Supervisor.Default) terminated"
       assert msg =~ " (Supervisor.Default) caused shutdown"
       assert msg =~ "** (exit) :reached_max_restart_intensity"
+    end
+  end
+
+  describe "Metadata" do
+    test "nil", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:boolean)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "extra=true"
+    end
+
+    test "string", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:string)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "extra=hello"
+    end
+
+    test "binary", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:binary)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "extra=\x01\x02\x03"
+    end
+
+    test "atom", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:atom)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "extra=foo"
+    end
+
+    test "integer", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:integer)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "extra=42"
+    end
+
+    test "datetime", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:datetime)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "extra=2025-06-01 12:34:56.000Z"
+    end
+
+    test "struct", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:struct)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips structs that do not implement String.Chars protocol 
+      refute msg =~ "extra"
+    end
+
+    test "tuple", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:tuple)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips tuples 
+      refute msg =~ "extra"
+    end
+
+    test "keyword", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:keyword)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips keyword lists 
+      refute msg =~ "extra"
+    end
+
+    test "improper keyword", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:improper_keyword)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips keyword lists 
+      refute msg =~ "extra"
+    end
+
+    test "fake keyword", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:fake_keyword)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips keyword lists 
+      refute msg =~ "extra"
+    end
+
+    test "list", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:list)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips all lists in fact 
+      refute msg =~ "extra"
+    end
+
+    test "improper list", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:improper_list)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips all lists in fact 
+      refute msg =~ "extra"
+    end
+
+    test "map", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:map)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips maps 
+      refute msg =~ "extra"
+    end
+
+    test "function", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:function)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips functions 
+      refute msg =~ "extra"
+    end
+
+    test "anonymous function", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:anonymous_function)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      # default formatter skips functions 
+      refute msg =~ "extra"
+    end
+
+    test "pid", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:pid)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ ~r"extra=<\d+\.\d+\.\d+>"
+    end
+
+    test "ref", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:ref)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ ~r"extra=<\d+.\d+\.\d+\.\d+>"
+    end
+
+    test "port", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:port)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ ~r"extra=<\d+.\d+>"
+    end
+
+    test "all", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.metadata_serialization(:all)
+      LoggerHandlerKit.Act.string_message()
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      refute msg =~ "extra"
     end
   end
 end

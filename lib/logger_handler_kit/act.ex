@@ -11,7 +11,7 @@ defmodule LoggerHandlerKit.Act do
   Each function represents a case of interest, potentially with different flavors to 
   highlight various cases.
 
-  The functions are divided into three groups: Basic, OTP, and SASL.
+  The functions are divided into four groups: Basic, OTP, SASL and Metadata.
 
   ## Basic
 
@@ -45,6 +45,10 @@ defmodule LoggerHandlerKit.Act do
   In real life, SASL logs look like reports from supervisors about things that you 
   would expect: child process restarts and such. They are skipped by Elixir by 
   default, but a thorough handler might have an interest in them.
+
+  ## Metadata
+
+  These cases focus on challenges that arise from metadata.
   """
 
   import ExUnit.Assertions
@@ -1662,4 +1666,81 @@ defmodule LoggerHandlerKit.Act do
     assert_receive({:EXIT, ^pid, _})
     :ok
   end
+
+  @doc """
+  Sets the `extra` key in Logger metadata to a sample value of some interesting type.
+
+  Metadata can contain arbitrary Elixir terms, and the primary challenge that
+  loggers face when exporting it is serialization. There is no universally good
+  way to represent an Elixir term as text, so handlers or formatters must make
+  hard choices. Some examples:
+
+  * Binary strings can contain non-printable characters.
+  * Structs by default don't implement the `String.Chars` protocol. When they do, the implementation might be designed for a different purpose than logging.
+  * Tuples can be inspected as text but lose their structure (in JSON), or serialized as lists which preserves structure but misleads about the original type.
+  * Charlists are indistinguishable from lists in JSON serialization.
+
+  The default text formatter [skips](`Logger.Formatter#module-metadata`) many of these complex cases.
+  """
+  @doc group: "Metadata"
+  @dialyzer :no_improper_lists
+  @metadata_types %{
+    boolean: true,
+    string: "hello world",
+    binary: <<1, 2, 3>>,
+    atom: :foo,
+    integer: 42,
+    datetime: ~U[2025-06-01T12:34:56.000Z],
+    struct: %LoggerHandlerKit.FakeStruct{hello: "world"},
+    tuple: {:ok, "hello"},
+    keyword: [hello: "world"],
+    improper_keyword: [{:a, 1} | {:b, 2}],
+    fake_keyword: [{:a, 1}, {:b, 2, :c}],
+    list: [1, 2, 3],
+    improper_list: [1, 2 | 3],
+    map: %{:hello => "world", "foo" => "bar"},
+    function: &__MODULE__.metadata_serialization/1
+  }
+  @spec metadata_serialization(
+          :boolean
+          | :string
+          | :binary
+          | :atom
+          | :integer
+          | :datetime
+          | :struct
+          | :tuple
+          | :keyword
+          | :improper_keyword
+          | :fake_keyword
+          | :list
+          | :improper_list
+          | :map
+          | :function
+          | :anonymous_function
+          | :pid
+          | :ref
+          | :port
+        ) :: :ok
+  def metadata_serialization(:pid), do: Logger.metadata(extra: self())
+
+  def metadata_serialization(:anonymous_function),
+    do: Logger.metadata(extra: fn -> "hello world" end)
+
+  def metadata_serialization(:ref), do: Logger.metadata(extra: make_ref())
+  def metadata_serialization(:port), do: Logger.metadata(extra: Port.list() |> hd())
+
+  def metadata_serialization(:all) do
+    all =
+      Map.merge(@metadata_types, %{
+        pid: self(),
+        anonymous_function: fn -> "hello world" end,
+        ref: make_ref(),
+        port: Port.list() |> hd()
+      })
+
+    Logger.metadata(extra: all)
+  end
+
+  def metadata_serialization(case), do: Logger.metadata(extra: Map.fetch!(@metadata_types, case))
 end
