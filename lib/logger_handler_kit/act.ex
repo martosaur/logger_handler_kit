@@ -340,6 +340,95 @@ defmodule LoggerHandlerKit.Act do
   def io_format(), do: :logger.log(:info, "Hello ~ts", ["World"])
 
   @doc """
+  Sometimes, errors are handled and reported as unhandled using [`crash_reason` metadata](guides/unhandled.md#crash_reason-metadata).
+
+  ```elixir
+  try do
+    raise "oops"
+  rescue
+    exception -> Logger.error("Something went wrong", crash_reason: {exception, __STACKTRACE__})
+  end
+  ```
+
+  Developers face a tough choice here: on the one hand, they have both error and
+  stacktrace that are perfectly formattable with `Exception.format/3`. On the
+  other hand, the user provided an explicit log message. 
+
+  <!-- tabs-open -->
+
+  ### Example Test
+
+  ```elixir
+  test "log with exception as crash reason", %{handler_ref: ref} do
+    LoggerHandlerKit.Act.log_with_crash_reason(:exception)
+    LoggerHandlerKit.Assert.assert_logged(ref)
+
+    # handler-specific assertions
+  end
+  ```
+
+  ### Example Log Event
+
+  ```elixir
+  %{
+    meta: %{
+      pid: #PID<0.204.0>,
+      time: 1749943344608173,
+      gl: #PID<0.69.0>,
+      domain: [:elixir],
+      crash_reason: {%RuntimeError{message: "oops"},
+       [
+         {LoggerHandlerKit.Act, :log_with_crash_reason, 1,
+          [
+            file: ~c"lib/logger_handler_kit/act.ex",
+            line: 531,
+            error_info: %{module: Exception}
+          ]},
+         {LoggerHandlerKit.DefaultLoggerTest,
+          :"test Basic log with crash reason: exception", 1,
+          [file: ~c"test/default_logger_test.exs", line: 97]},
+         {ExUnit.Runner, :exec_test, 2,
+          [file: ~c"lib/ex_unit/runner.ex", line: 522]},
+         {ExUnit.CaptureLog, :with_log, 2,
+          [file: ~c"lib/ex_unit/capture_log.ex", line: 117]},
+         {ExUnit.Runner, :"-maybe_capture_log/3-fun-0-", 3,
+          [file: ~c"lib/ex_unit/runner.ex", line: 471]},
+         {:timer, :tc, 2, [file: ~c"timer.erl", line: 595]},
+         {ExUnit.Runner, :"-spawn_test_monitor/4-fun-1-", 6,
+          [file: ~c"lib/ex_unit/runner.ex", line: 444]}
+       ]}
+    },
+    msg: {:string, "Handled Exception"},
+    level: :error
+  }
+  ```
+
+  <!-- tabs-close -->
+  """
+  @doc group: "Basic"
+  @spec log_with_crash_reason(:exception | :exit | :throw) :: :ok
+  def log_with_crash_reason(:exception) do
+    raise "oops"
+  rescue
+    exception ->
+      Logger.bare_log(:error, "Handled Exception", crash_reason: {exception, __STACKTRACE__})
+  end
+
+  def log_with_crash_reason(:throw) do
+    throw("catch!")
+  catch
+    :throw, value ->
+      Logger.bare_log(:error, "Caught", crash_reason: {{:nocatch, value}, __STACKTRACE__})
+  end
+
+  def log_with_crash_reason(:exit) do
+    exit("i quit")
+  catch
+    :exit, value ->
+      Logger.bare_log(:error, "Exited", crash_reason: {value, __STACKTRACE__})
+  end
+
+  @doc """
   `GenServer` crash is a very common error message. So common, in fact, that a lot of 
   handlers put additional effort into extracting useful information from GenServer reports, 
   such as process name, labels, and client information. Before Elixir 1.19, that was 
