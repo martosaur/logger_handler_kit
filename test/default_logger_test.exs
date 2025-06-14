@@ -92,6 +92,30 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
       assert_receive {^io_ref, msg}
       assert msg =~ "[info] Hello World"
     end
+
+    test "log with crash reason: exception", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.log_with_crash_reason(:exception)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "[error] Handled Exception"
+    end
+
+    test "log with crash reason: throw", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.log_with_crash_reason(:throw)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "[error] Caught"
+    end
+
+    test "log with crash reason: exit", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.log_with_crash_reason(:exit)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+
+      assert_receive {^io_ref, msg}
+      assert msg =~ "[error] Exited"
+    end
   end
 
   describe "OTP" do
