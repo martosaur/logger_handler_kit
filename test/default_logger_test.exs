@@ -1,7 +1,7 @@
 defmodule LoggerHandlerKit.DefaultLoggerTest do
   use ExUnit.Case, async: true
 
-  setup_all {LoggerHandlerKit.Arrange, :ensure_per_handler_translation}
+  setup {LoggerHandlerKit.Arrange, :ensure_per_handler_translation}
 
   setup do
     ref = make_ref()
@@ -557,6 +557,63 @@ defmodule LoggerHandlerKit.DefaultLoggerTest do
 
       assert_receive {^io_ref, msg}
       refute msg =~ "extra"
+    end
+  end
+
+  describe "Plug" do
+    @describetag level: :error
+
+    test "Bandit: plug exception", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.plug_error(:exception, Bandit)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+      assert_receive {^io_ref, msg}
+      assert msg =~ "[error] ** (RuntimeError) oops"
+    end
+
+    test "Bandit: plug throw", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.plug_error(:throw, Bandit)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+      assert_receive {^io_ref, msg}
+      assert msg =~ "[error] ** (throw) \"catch!\""
+    end
+
+    test "Bandit: plug exit", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.plug_error(:exit, Bandit)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+      assert_receive {^io_ref, msg}
+      assert msg =~ "[error] ** (exit) \"i quit\""
+    end
+
+    test "Cowboy: plug exception", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.plug_error(:exception, Plug.Cowboy)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+      assert_receive {^io_ref, msg}
+      assert msg =~ "running LoggerHandlerKit.Plug"
+      assert msg =~ "Server: localhost:8001"
+      assert msg =~ "Request: GET /exception"
+      assert msg =~ "(exit) an exception was raised:"
+      assert msg =~ "** (RuntimeError) oops"
+    end
+
+    test "Cowboy: plug throw", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.plug_error(:throw, Plug.Cowboy)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+      assert_receive {^io_ref, msg}
+      assert msg =~ "running LoggerHandlerKit.Plug"
+      assert msg =~ "Server: localhost:8001"
+      assert msg =~ "Request: GET /throw"
+      assert msg =~ "(exit) an exception was raised:"
+      assert msg =~ "** (ErlangError) Erlang error: {:nocatch, \"catch!\"}"
+    end
+
+    test "Cowboy: plug exit", %{handler_ref: ref, io_ref: io_ref} do
+      LoggerHandlerKit.Act.plug_error(:exit, Plug.Cowboy)
+      LoggerHandlerKit.Assert.assert_logged(ref)
+      assert_receive {^io_ref, msg}
+      assert msg =~ "running LoggerHandlerKit.Plug"
+      assert msg =~ "Server: localhost:8001"
+      assert msg =~ "Request: GET /exit"
+      assert msg =~ "** (exit) \"i quit\""
     end
   end
 end

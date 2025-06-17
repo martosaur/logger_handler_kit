@@ -134,7 +134,10 @@ defmodule LoggerHandlerKit.Arrange do
            %{
              otp: Map.get(big_config_override, :handle_otp_reports, true),
              sasl: Map.get(big_config_override, :handle_sasl_reports, false),
-             translators: [{Logger.Translator, :translate}]
+             translators: [
+               {Plug.Cowboy.Translator, :translate},
+               {Logger.Translator, :translate}
+             ]
            }}
       ]
     }
@@ -170,7 +173,16 @@ defmodule LoggerHandlerKit.Arrange do
   """
   def ownership_filter(log_event, %{handler_id: handler_id}) do
     callers = Process.get(:"$callers") || []
-    meta_pid = get_in(log_event, [:meta, :pid])
+
+    meta_pids =
+      [
+        # A lot of OTP reports have original pid under this key
+        get_in(log_event, [:meta, :pid]),
+        # In Bandit Plug error, we can fetch thoughtfully put test pid from the `conn` metadata
+        get_in(log_event, [:meta, :plug, Access.elem(1), :test_pid]),
+        # In Cowboy/Ranch reports, `conn` is also available albeit deeply, painfully nested
+        maybe_test_pid_from_ranch_report(log_event)
+      ]
 
     @ownership_server
     |> NimbleOwnership.fetch_owner([self() | callers], handler_id)
@@ -179,7 +191,7 @@ defmodule LoggerHandlerKit.Arrange do
         log_event
 
       _ ->
-        case NimbleOwnership.fetch_owner(@ownership_server, [meta_pid], handler_id) do
+        case NimbleOwnership.fetch_owner(@ownership_server, meta_pids, handler_id) do
           {:ok, owner_pid} ->
             with server when not is_nil(server) <- GenServer.whereis({:global, Mox.Server}) do
               for {key, _} <- NimbleOwnership.get_owned({:global, Mox.Server}, owner_pid, %{}) do
@@ -207,4 +219,12 @@ defmodule LoggerHandlerKit.Arrange do
   def allow(owner_pid, pid, handler_id) do
     NimbleOwnership.allow(@ownership_server, owner_pid, pid, handler_id)
   end
+
+  defp maybe_test_pid_from_ranch_report(%{
+         msg: {:report, %{args: [_, _, _, _, {{_, {_, _, [_, %{test_pid: pid} | _]}}, _} | _]}}
+       }) do
+    pid
+  end
+
+  defp maybe_test_pid_from_ranch_report(_), do: nil
 end
