@@ -47,7 +47,8 @@ defmodule LoggerHandlerKit.MixProject do
         "README.md",
         "guides/translation.md",
         "guides/unhandled.md",
-        "guides/metadata.md"
+        "guides/metadata.md",
+        "guides/plug-integration.md"
       ],
       groups_for_modules: [
         Helpers: [
@@ -68,6 +69,10 @@ defmodule LoggerHandlerKit.MixProject do
   defp deps do
     [
       {:nimble_ownership, "~> 1.0"},
+      {:plug, "~> 1.18"},
+      {:bandit, "~> 1.7"},
+      {:plug_cowboy, "~> 2.7"},
+      {:mint, "~> 1.7"},
       {:ex_doc, "~> 0.37", only: :dev}
     ]
   end

@@ -1743,4 +1743,228 @@ defmodule LoggerHandlerKit.Act do
   end
 
   def metadata_serialization(case), do: Logger.metadata(extra: Map.fetch!(@metadata_types, case))
+
+  @doc """
+  Starts a web server powered by Cowboy or Bandit and sends a request that triggers an error during the Plug pipeline.
+
+  See [Plug integration guide](guides/plug-integration.md) for more details.
+
+  <!-- tabs-open -->
+
+  ### Example Test
+
+  ```elixir
+  # You only need to create your own router if you want to test custom plugs that somehow affect logging
+  defmodule MyPlug do
+    use Plug.Router
+    
+    plug MyCustomPlug
+    plug :match
+    plug :dispatch
+    
+    forward "/", to: LoggerHandlerKit.Plug
+  end
+
+  test "Bandit: plug exception", %{handler_ref: ref, io_ref: io_ref} do
+    LoggerHandlerKit.Act.plug_error(:exception, Bandit, MyPlug)
+    LoggerHandlerKit.Assert.assert_logged(ref)
+    
+    # handler-specific assertions
+  end  
+  ```
+
+  ### Example Log Event (Bandit)
+
+  ```elixir
+  %{
+    meta: %{
+      line: 242,
+      pid: #PID<0.556.0>,
+      time: 1750196815012775,
+      file: ~c"lib/bandit/pipeline.ex",
+      gl: #PID<0.69.0>,
+      domain: [:elixir, :bandit],
+      application: :bandit,
+      mfa: {Bandit.Pipeline, :handle_error, 7},
+      plug: {LoggerHandlerKit.Plug, %{test_pid: #PID<0.240.0>}},
+      conn: %Plug.Conn{...},
+      crash_reason: {%RuntimeError{message: "oops"},
+       [
+         {LoggerHandlerKit.Plug, :"-do_match/4-fun-1-", 2,
+          [
+            file: ~c"lib/logger_handler_kit/plug.ex",
+            line: 8,
+            error_info: %{module: Exception}
+          ]},
+         {LoggerHandlerKit.Plug, :"-dispatch/2-fun-0-", 4,
+          [file: ~c"deps/plug/lib/plug/router.ex", line: 246]},
+         {:telemetry, :span, 3,
+          [
+            file: ~c"/Users/user/projects/logger_handler_kit/deps/telemetry/src/telemetry.erl",
+            line: 324
+          ]},
+         {LoggerHandlerKit.Plug, :dispatch, 2,
+          [file: ~c"deps/plug/lib/plug/router.ex", line: 242]},
+         {LoggerHandlerKit.Plug, :plug_builder_call, 2,
+          [file: ~c"lib/logger_handler_kit/plug.ex", line: 1]},
+         {Bandit.Pipeline, :call_plug!, 2,
+          [file: ~c"lib/bandit/pipeline.ex", line: 131]},
+         {Bandit.Pipeline, :run, 5, [file: ~c"lib/bandit/pipeline.ex", line: 42]},
+         {Bandit.HTTP1.Handler, :handle_data, 3,
+          [file: ~c"lib/bandit/http1/handler.ex", line: 13]},
+         {Bandit.DelegatingHandler, :handle_data, 3,
+          [file: ~c"lib/bandit/delegating_handler.ex", line: 18]},
+         {Bandit.DelegatingHandler, :handle_continue, 2,
+          [file: ~c"lib/bandit/delegating_handler.ex", line: 8]},
+         {:gen_server, :try_handle_continue, 3,
+          [file: ~c"gen_server.erl", line: 2335]},
+         {:gen_server, :loop, 7, [file: ~c"gen_server.erl", line: 2244]},
+         {:proc_lib, :init_p_do_apply, 3, [file: ~c"proc_lib.erl", line: 329]}
+       ]}
+    },
+    msg: {:string,
+     "** (RuntimeError) oops\n    (logger_handler_kit 0.2.0) lib/logger_handler_kit/plug.ex:8: anonymous fn/2 in LoggerHandlerKit.Plug.do_match/4\n    (logger_handler_kit 0.2.0) deps/plug/lib/plug/router.ex:246: anonymous fn/4 in LoggerHandlerKit.Plug.dispatch/2\n    (telemetry 1.3.0) /Users/user/projects/logger_handler_kit/deps/telemetry/src/telemetry.erl:324: :telemetry.span/3\n    (logger_handler_kit 0.2.0) deps/plug/lib/plug/router.ex:242: LoggerHandlerKit.Plug.dispatch/2\n    (logger_handler_kit 0.2.0) lib/logger_handler_kit/plug.ex:1: LoggerHandlerKit.Plug.plug_builder_call/2\n    (bandit 1.7.0) lib/bandit/pipeline.ex:131: Bandit.Pipeline.call_plug!/2\n    (bandit 1.7.0) lib/bandit/pipeline.ex:42: Bandit.Pipeline.run/5\n    (bandit 1.7.0) lib/bandit/http1/handler.ex:13: Bandit.HTTP1.Handler.handle_data/3\n    (bandit 1.7.0) lib/bandit/delegating_handler.ex:18: Bandit.DelegatingHandler.handle_data/3\n    (bandit 1.7.0) lib/bandit/delegating_handler.ex:8: Bandit.DelegatingHandler.handle_continue/2\n    (stdlib 6.2.2) gen_server.erl:2335: :gen_server.try_handle_continue/3\n    (stdlib 6.2.2) gen_server.erl:2244: :gen_server.loop/7\n    (stdlib 6.2.2) proc_lib.erl:329: :proc_lib.init_p_do_apply/3\n"},
+    level: :error
+  }
+  ```
+
+  ### Example Log Event (Cowboy) (Elixir 1.19+)
+
+  ```elixir
+  %{
+    meta: %{
+      error_logger: %{tag: :error},
+      pid: #PID<0.454.0>,
+      time: 1750197653870258,
+      gl: #PID<0.69.0>,
+      domain: [:cowboy],
+      report_cb: &Logger.Utils.translated_cb/1,
+      conn: %Plug.Conn{...},
+      crash_reason: {%RuntimeError{message: "oops"},
+       [
+         {LoggerHandlerKit.Plug, :"-do_match/4-fun-1-", 2,
+          [
+            file: ~c"lib/logger_handler_kit/plug.ex",
+            line: 8,
+            error_info: %{module: Exception}
+          ]},
+         {LoggerHandlerKit.Plug, :"-dispatch/2-fun-0-", 4,
+          [file: ~c"deps/plug/lib/plug/router.ex", line: 246]},
+         {:telemetry, :span, 3,
+          [
+            file: ~c"/Users/user/projects/logger_handler_kit/deps/telemetry/src/telemetry.erl",
+            line: 324
+          ]},
+         {LoggerHandlerKit.Plug, :dispatch, 2,
+          [file: ~c"deps/plug/lib/plug/router.ex", line: 242]},
+         {LoggerHandlerKit.Plug, :plug_builder_call, 2,
+          [file: ~c"lib/logger_handler_kit/plug.ex", line: 1]},
+         {Plug.Cowboy.Handler, :init, 2,
+          [file: ~c"lib/plug/cowboy/handler.ex", line: 11]},
+         {:cowboy_handler, :execute, 2,
+          [
+            file: ~c"/Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_handler.erl",
+            line: 37
+          ]},
+         {:cowboy_stream_h, :execute, 3,
+          [
+            file: ~c"/Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_stream_h.erl",
+            line: 310
+          ]},
+         {:cowboy_stream_h, :request_process, 3,
+          [
+            file: ~c"/Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_stream_h.erl",
+            line: 299
+          ]},
+         {:proc_lib, :init_p_do_apply, 3, [file: ~c"proc_lib.erl", line: 329]}
+       ]}
+    },
+    msg: {:report,
+     %{
+       args: [
+         LoggerHandlerKit.Plug.HTTP,
+         #PID<0.454.0>,
+         1,
+         #PID<0.455.0>,
+         {{{%RuntimeError{message: "oops"},
+            [
+              {LoggerHandlerKit.Plug, :"-do_match/4-fun-1-", 2,
+               [
+                 file: ~c"lib/logger_handler_kit/plug.ex",
+                 line: 8,
+                 error_info: %{module: Exception}
+               ]},
+              {LoggerHandlerKit.Plug, :"-dispatch/2-fun-0-", 4,
+               [file: ~c"deps/plug/lib/plug/router.ex", line: 246]},
+              {:telemetry, :span, 3,
+               [
+                 file: ~c"/Users/user/projects/logger_handler_kit/deps/telemetry/src/telemetry.erl",
+                 line: 324
+               ]},
+              {LoggerHandlerKit.Plug, :dispatch, 2,
+               [file: ~c"deps/plug/lib/plug/router.ex", line: 242]},
+              {LoggerHandlerKit.Plug, :plug_builder_call, 2,
+               [file: ~c"lib/logger_handler_kit/plug.ex", line: 1]},
+              {Plug.Cowboy.Handler, :init, 2,
+               [file: ~c"lib/plug/cowboy/handler.ex", line: 11]},
+              {:cowboy_handler, :execute, 2,
+               [
+                 file: ~c"/Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_handler.erl",
+                 line: 37
+               ]},
+              {:cowboy_stream_h, :execute, 3,
+               [
+                 file: ~c"/Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_stream_h.erl",
+                 line: 310
+               ]},
+              {:cowboy_stream_h, :request_process, 3,
+               [
+                 file: ~c"/Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_stream_h.erl",
+                 line: 299
+               ]},
+              {:proc_lib, :init_p_do_apply, 3,
+               [file: ~c"proc_lib.erl", line: 329]}
+            ]},
+           {LoggerHandlerKit.Plug, :call,
+            [
+              %Plug.Conn{},
+              %{test_pid: #PID<0.238.0>}
+            ]}}, []}
+       ],
+       label: {:error_logger, :error_msg},
+       format: ~c"Ranch listener ~p, connection process ~p, stream ~p had its request process ~p exit with reason ~0p~n",
+       elixir_translation: [
+         "#PID<0.455.0>",
+         " running ",
+         "LoggerHandlerKit.Plug",
+         [" (connection ", "#PID<0.454.0>", ", stream id ", "1", 41],
+         " terminated\n",
+         [
+           ["Server: ", "localhost", ":", "8001", 32, 40, "http", 41, 10],
+           ["Request: ", "GET", 32, "/exception", 10]
+         ] |
+         "** (exit) an exception was raised:\n    ** (RuntimeError) oops\n        (logger_handler_kit 0.2.0) lib/logger_handler_kit/plug.ex:8: anonymous fn/2 in LoggerHandlerKit.Plug.do_match/4\n        (logger_handler_kit 0.2.0) deps/plug/lib/plug/router.ex:246: anonymous fn/4 in LoggerHandlerKit.Plug.dispatch/2\n        (telemetry 1.3.0) /Users/user/projects/logger_handler_kit/deps/telemetry/src/telemetry.erl:324: :telemetry.span/3\n        (logger_handler_kit 0.2.0) deps/plug/lib/plug/router.ex:242: LoggerHandlerKit.Plug.dispatch/2\n        (logger_handler_kit 0.2.0) lib/logger_handler_kit/plug.ex:1: LoggerHandlerKit.Plug.plug_builder_call/2\n        (plug_cowboy 2.7.3) lib/plug/cowboy/handler.ex:11: Plug.Cowboy.Handler.init/2\n        (cowboy 2.13.0) /Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_handler.erl:37: :cowboy_handler.execute/2\n        (cowboy 2.13.0) /Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_stream_h.erl:310: :cowboy_stream_h.execute/3\n        (cowboy 2.13.0) /Users/user/projects/logger_handler_kit/deps/cowboy/src/cowboy_stream_h.erl:299: :cowboy_stream_h.request_process/3\n        (stdlib 6.2.2) proc_lib.erl:329: :proc_lib.init_p_do_apply/3"
+       ]
+     }},
+    level: :error
+  }
+  ```
+
+  <!-- tabs-close -->
+  """
+  @doc group: "Plug"
+  @spec plug_error(:exception | :throw | :exit, Bandit | Plug.Cowboy, module()) :: :ok
+  def plug_error(
+        flavour \\ :exception,
+        web_server \\ Bandit,
+        router_plug \\ LoggerHandlerKit.Plug
+      ) do
+    ExUnit.Callbacks.start_supervised!(
+      {web_server, [plug: {router_plug, %{test_pid: self()}}, scheme: :http, port: 8001]}
+    )
+
+    {:ok, conn} = Mint.HTTP.connect(:http, "localhost", 8001)
+    {:ok, _conn, _request_ref} = Mint.HTTP.request(conn, "GET", "/#{flavour}", [], nil)
+    :ok
+  end
 end
