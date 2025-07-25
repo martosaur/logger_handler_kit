@@ -98,7 +98,7 @@ flowchart TD
 def deps do
   [
     # The package only makes sense for tests!
-    {:logger_handler_kit, only: :test, "~> 0.3.0"}
+    {:logger_handler_kit, only: :test, "~> 0.4.0"}
   ]
 end
 ```
