@@ -71,7 +71,7 @@ defmodule LoggerHandlerKit.Arrange do
   * `big_config_override` is a map that will be merged into _handler config_. But a different one, 
   the one of `:logger_handler.config()` type. This is also the place to put 
   `handle_otp_reports` and `handle_sasl_reports` options, they will be passed to the 
-  translator.
+  translator. Finally, `share_ownership_with` option used by `ownership_filter/2` also belongs here.
 
   ### Return
 
@@ -128,7 +128,14 @@ defmodule LoggerHandlerKit.Arrange do
         ref: ref
       },
       filters: [
-        ownership_filter: {&ownership_filter/2, %{handler_id: handler_id, test_pid: self()}},
+        ownership_filter:
+          {&ownership_filter/2,
+           %{
+             handler_id: handler_id,
+             test_pid: self(),
+             share_ownership_with:
+               Map.get(big_config_override, :share_ownership_with, [{:global, Mox.Server}])
+           }},
         logger_translator:
           {&Logger.Utils.translator/2,
            %{
@@ -169,9 +176,14 @@ defmodule LoggerHandlerKit.Arrange do
   ownership information across processes. However, in some cases the logging process is 
   completely detached from the originating process. In this case, ownership filter will 
   check `pid` key in metadata, and if _that_ pid has access to the handler, it will 
-  allow it and also ask `Mox` to allow it, if present.
+  allow it and ask all ownership servers specified in `share_ownership_with` option to do the same.
+
+  By default, `share_ownership_with` only includes `Mox` server (`{:global, Mox.Server}`)
   """
-  def ownership_filter(log_event, %{handler_id: handler_id}) do
+  def ownership_filter(log_event, %{
+        handler_id: handler_id,
+        share_ownership_with: ownership_servers
+      }) do
     callers = Process.get(:"$callers") || []
 
     meta_pids =
@@ -193,9 +205,12 @@ defmodule LoggerHandlerKit.Arrange do
       _ ->
         case NimbleOwnership.fetch_owner(@ownership_server, meta_pids, handler_id) do
           {:ok, owner_pid} ->
-            with server when not is_nil(server) <- GenServer.whereis({:global, Mox.Server}) do
-              for {key, _} <- NimbleOwnership.get_owned({:global, Mox.Server}, owner_pid, %{}) do
-                NimbleOwnership.allow({:global, Mox.Server}, owner_pid, self(), key)
+            for server <- ownership_servers do
+              with server when not is_nil(server) <-
+                     GenServer.whereis(server) do
+                for {key, _} <- NimbleOwnership.get_owned(server, owner_pid, %{}) do
+                  NimbleOwnership.allow(server, owner_pid, self(), key)
+                end
               end
             end
 
